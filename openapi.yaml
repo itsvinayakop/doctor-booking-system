@@ -1,0 +1,597 @@
+openapi: 3.0.3
+info:
+  title: Telemedicine Backend API
+  version: 1.0.0
+  description: Production-grade API for core telemedicine workflows (Auth, Booking, Consultation).
+  contact:
+    name: Telemedicine Team
+    email: devops@telemedicine.example.com
+    url: https://yourcompany.example.com
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://staging.api.yourdomain.com
+    description: Staging
+  - url: https://api.yourdomain.com
+    description: Production
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+    RegisterDto:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address.
+        password:
+          type: string
+          minLength: 8
+          description: Secure password.
+        name:
+          type: string
+      required:
+        - email
+        - password
+
+    LoginDto:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [patient, doctor, admin]
+        createdAt:
+          type: string
+          format: date-time
+
+    TokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT access token.
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    CreateDoctorDto:
+      type: object
+      properties:
+        specialty:
+          type: string
+          description: Doctor's specialty (e.g., Ayurveda).
+        fees:
+          type: number
+          description: Consultation fee.
+      required:
+        - specialty
+        - fees
+
+    CreateSlotDto:
+      type: object
+      properties:
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+      required:
+        - startTime
+        - endTime
+
+    CreateBookingDto:
+      type: object
+      properties:
+        slotId:
+          type: string
+          format: uuid
+          description: ID of the available slot to book.
+      required:
+        - slotId
+
+    PrescriptionDto:
+      type: object
+      properties:
+        medicationDetails:
+          type: string
+          description: Full text of the prescription and notes.
+      required:
+        - medicationDetails
+
+    DoctorProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+        specialty:
+          type: string
+        fees:
+          type: number
+        experienceYears:
+          type: integer
+
+    AvailabilitySlot:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        doctorId:
+          type: string
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [available, booked, cancelled]
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        slotId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled, completed]
+        createdAt:
+          type: string
+          format: date-time
+
+    Consultation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        bookingId:
+          type: string
+        notes:
+          type: string
+        prescriptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Prescription'
+
+    Prescription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        consultationId:
+          type: string
+        medicine:
+          type: string
+        dosage:
+          type: string
+
+    PaginationResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilitySlot'
+        total:
+          type: integer
+          example: 32
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+            examples:
+              example:
+                value:
+                  email: user@example.com
+                  password: securePassword123
+                  name: "Jaya Patient"
+      responses:
+        '201':
+          description: User successfully registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Authenticate user and issue JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDto'
+            examples:
+              example:
+                value:
+                  email: user@example.com
+                  password: securePassword123
+      responses:
+        '200':
+          description: Login successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /booking/doctor/profile:
+    post:
+      tags:
+        - Booking
+      summary: Create or update doctor profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDoctorDto'
+            examples:
+              example:
+                value:
+                  specialty: "Ayurveda"
+                  fees: 200
+      responses:
+        '201':
+          description: Profile created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorProfile'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /booking/slots/search:
+    get:
+      tags:
+        - Booking
+      summary: Find available slots by specialty and date
+      parameters:
+        - name: specialty
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of available slots (fast read via Redis cache).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginationResult'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /booking/slots/book:
+    post:
+      tags:
+        - Booking
+      summary: Executes transactional slot booking
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingDto'
+            examples:
+              example:
+                value:
+                  slotId: "11111111-1111-1111-1111-111111111111"
+      responses:
+        '201':
+          description: Booking created (atomic transaction complete).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized (missing/invalid token)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden (insufficient role)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict (slot already booked)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /booking/{bookingId}:
+    get:
+      tags:
+        - Booking
+      summary: Get booking by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: bookingId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /consultation/{bookingId}/prescription:
+    post:
+      tags:
+        - Consultation
+      summary: Submits prescription and completes consultation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionDto'
+            examples:
+              example:
+                value:
+                  medicationDetails: "Take 1 tablet twice daily after meals for 5 days."
+      responses:
+        '201':
+          description: Prescription filed (triggers async audit log).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /consultations:
+    post:
+      tags:
+        - Consultation
+      summary: Create a consultation record linked to booking
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bookingId:
+                  type: string
+                notes:
+                  type: string
+            examples:
+              example:
+                value:
+                  bookingId: "22222222-2222-2222-2222-222222222222"
+                  notes: "Patient had mild fever."
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consultation'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /consultations/{consultationId}:
+    get:
+      tags:
+        - Consultation
+      summary: Get consultation details including prescriptions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: consultationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consultation'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check for readiness/liveness
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+tags:
+  - name: Auth
+    description: Authentication and user management
+  - name: Booking
+    description: Doctor profiles, availability, and booking flows
+  - name: Consultation
+    description: Consultation records and prescriptions
+  - name: Health
+    description: Health checks

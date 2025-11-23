@@ -117,3 +117,57 @@ The backend follows a modular service architecture with separate domain-driven m
 | Workflow            | Method | Endpoint                         | Feature                                                    |
 | ------------------- | ------ | -------------------------------- | ---------------------------------------------------------- |
 | Upload Prescription | POST   | `/consultation/:id/prescription` | Triggers asynchronous audit logging (compliance & async jobs) |
+
+## 📝 API Documentation (OpenAPI 3.0)
+
+This project includes a complete, production-ready **OpenAPI 3.0 specification**  
+located at: **openapi.yaml**
+
+---
+
+### 📘 View the API Documentation
+
+You can preview the API spec locally using Swagger UI:
+
+```bash
+npx @redocly/cli preview-docs openapi.yaml
+
+---
+
+## 🚦 CI/CD Pipeline (GitHub Actions)
+
+This repository includes a full CI/CD pipeline located at:
+***.github/workflows/ci-pipeline.yml***
+
+The pipeline includes:
+
+✔ Automated dependency installation  
+✔ PostgreSQL test container  
+✔ Unit & integration test execution  
+✔ Linting & type-checking  
+✔ Docker image build (`docker build`)  
+✔ Optional push to container registry  
+✔ Deployment simulation step (Terraform)
+
+This ensures continuous integration and production-grade build validation.
+
+---
+
+## 📊 Observability & Monitoring
+
+This system implements production-grade observability:
+
+### 🔹 Logging
+- Structured JSON logs  
+- HTTP request/response logging (global interceptor)
+
+### 🔹 Metrics
+- Prometheus-style metrics endpoint (`/metrics`)  
+- Track request latency, DB latency, cache hit rate
+
+### 🔹 Tracing
+- Distributed tracing (OpenTelemetry-ready)  
+- Span context propagation across requests
+
+The detailed Observability Strategy document is included in:
+
