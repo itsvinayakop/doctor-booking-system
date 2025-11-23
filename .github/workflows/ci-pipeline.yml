@@ -2,9 +2,11 @@ name: CI/CD Pipeline - Amrutam Backend
 
 on:
   push:
-    branches: [ main, staging ]
+    # Your repo uses 'master' as the default branch — include staging too if you use it
+    branches: [ master, staging ]
   pull_request:
-    branches: [ main ]
+    # Run PR checks when PR targets master
+    branches: [ master ]
 
 permissions:
   contents: read
@@ -15,7 +17,11 @@ jobs:
   build_and_test:
     runs-on: ubuntu-latest
 
-    # If your tests need PostgreSQL, keep this block.
+    # Map the secret into an env variable so it can be safely referenced in `if` expressions
+    env:
+      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
+    # If your tests need PostgreSQL, keep this block; otherwise remove it
     services:
       postgres:
         image: postgres:14-alpine
@@ -34,12 +40,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: npm
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -71,21 +79,24 @@ jobs:
       - name: Build Docker image
         run: docker build -t healthcare-backend:${{ github.sha }} .
 
-      - name: 📦 Push Docker Image (optional)
-        if: ${{ secrets.ECR_REGISTRY != '' }}
+      - name: 📦 Push Docker Image to Registry (optional)
+        # safe check against env var (mapped from secret). This avoids the "Unrecognized named-value: 'secrets'" error.
+        if: ${{ env.ECR_REGISTRY != '' }}
         uses: docker/build-push-action@v4
         with:
           push: true
-          tags: ${{ secrets.ECR_REGISTRY }}/healthcare-backend:${{ github.sha }}
+          # tag with the registry from the secret
+          tags: ${{ env.ECR_REGISTRY }}/healthcare-backend:${{ github.sha }}
 
   deploy_to_staging:
     needs: build_and_test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # Only run deployment steps on pushes to master (adjust if you want staging branch auto-deploy)
+    if: github.ref == 'refs/heads/master'
 
     steps:
       - name: Simulated Cloud Deployment
         run: |
-          echo "🚀 Deploying image healthcare-backend:${{ github.sha }} to staging..."
-          echo "Using Terraform / AWS / Cloud Run (placeholder)"
+          echo "🚀 Deploying image: ${ECR_REGISTRY:+${ECR_REGISTRY}/}healthcare-backend:${{ github.sha }} to staging..."
+          echo "This is a placeholder. Replace with Terraform / gcloud / aws-cli deploy commands."
           echo "✔️ Deployment simulation complete."
